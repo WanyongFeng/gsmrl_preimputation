@@ -3,7 +3,7 @@ import numpy as np
 import tensorflow as tf
 import random
 from scipy.stats import entropy
-from scipy.special import softmax
+# from scipy.special import softmax
 
 from utils.hparams import HParams
 from models import get_model
@@ -74,11 +74,11 @@ class Env(object):
                                self.model.b: m,
                                self.model.m: m,
                                self.model.y: y})
-        # logger.info(f'xent_acflow:  {xent_acflow}')
-        xent_policy = -np.log(softmax(p)[np.arange(len(p)), y.astype(np.int64)])
-        # logger.info(f'xent_policy:  {xent_policy}')
+        temp = p.copy()
+        with tf.Session() as sess:
+            temp = sess.run(tf.nn.softmax(temp))
+        xent_policy = -np.log(temp[np.arange(len(p)), y.astype(np.int64)])
         xent = np.minimum(xent_acflow, xent_policy)
-        # logger.info(f'xent:  {xent}')
         return -xent
 
     def _info_gain(self, x, old_m, m, y):
@@ -128,29 +128,29 @@ class Env(object):
             info_gain = self._info_gain(x, old_m, m, y)
             reward[normal] = info_gain - acquisition_cost
 
-        #     sam = self.model.run(
-        #         [self.model.sam],
-        #             feed_dict={self.model.x: x,
-        #             self.model.b: old_m,
-        #             self.model.m: np.ones_like(old_m)})    
-        #     diff = []
-        #     for i, vals in enumerate(old_m):
-        #         for j, val in enumerate(vals):
-        #             if not m[i][j] == val:
-        #                 diff.append(j)
-        #     # logger.info(f'diff:  {diff}')
+            # sam = self.model.run(
+            #     [self.model.sam],
+            #         feed_dict={self.model.x: x,
+            #         self.model.b: old_m,
+            #         self.model.m: np.ones_like(old_m)})    
+            # diff = []
+            # for i, vals in enumerate(old_m):
+            #     for j, val in enumerate(vals):
+            #         if not m[i][j] == val:
+            #             diff.append(j)
+            # # logger.info(f'diff:  {diff}')
 
-        #     diff = np.array(diff)
-        #     for i, value in enumerate(x):
-        #         if value[diff[i]] == 0.0:
-        #             idx = random.randint(0, 9)
-        #             value[diff[i]] = sam[0][i][idx][diff[i]]
+            # diff = np.array(diff)
+            # for i, value in enumerate(x):
+            #     if value[diff[i]] == 0.0:
+            #         idx = random.randint(0, 9)
+            #         value[diff[i]] = sam[0][i][idx][diff[i]]
 
-        #     self.x[normal] = x
-        #     logger.info(f'self.x_changed:  {self.x}')
+            # self.x[normal] = x
+            # logger.info(f'self.x_changed:  {self.x}')
 
-        #     info_gain = self._info_gain(x, old_m, m, y)
-        #     reward[normal] = info_gain - acquisition_cost
+            # info_gain = self._info_gain(x, old_m, m, y)
+            # reward[normal] = info_gain - acquisition_cost
             
         return self.x * self.m, self.m.copy(), reward, done
 
@@ -164,8 +164,10 @@ class Env(object):
         sam_std = np.std(sam, axis=1)
         pred_sam_mean = np.mean(pred_sam, axis=1)
         pred_sam_std = np.std(pred_sam, axis=1)
-
-        prob = softmax(logits, axis=-1)
+        temp = logits
+        with tf.Session() as sess:
+            temp = sess.run(tf.nn.softmax(logits, axis = -1))
+        prob = temp
         prob = np.max(prob, axis=-1, keepdims=True)
         prob = np.ones_like(state) * prob
 
